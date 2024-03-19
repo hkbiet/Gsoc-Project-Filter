@@ -29,7 +29,8 @@ for element in elements:
     # Print attributes
     print("Element:", element.tag_name)
     for attribute in all_attributes:
-        print(attribute["name"], ":", attribute["value"])
+        if 'href' in attribute["name"]:
+            print(attribute["name"], ":", attribute["value"])
 
 # Close the browser
 driver.close()
