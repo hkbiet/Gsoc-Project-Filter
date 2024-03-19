@@ -1,11 +1,14 @@
 import time
 import re
+from multiprocessing import Process
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from multiprocessing import Queue
 
 
+inputted_language = ""
 def find_match(user_input, result_string):
     print("Looking for : ", user_input, " in tech string : ", result_string)
     regex_pattern = r' ' + re.escape(user_input)
@@ -66,34 +69,71 @@ while True:
     continue
 
 
-def get_tech(url, obj):
-    lang = obj.get_input_lang()
+def get_tech(url, Driver, queue):
+    driver = Driver()
     print("WORKING FOR : ", url)
     driver.get(url)
     w = WebDriverWait(driver, 10)
     elem = w.until(EC.presence_of_element_located((By.XPATH, "//*[@class='tech__content']")))
     tech_list_string = elem.text
-    if find_match(lang, tech_list_string):
-        obj.set_results(url)
+    if find_match(inputted_language, tech_list_string):
+        queue.put(url)
 
 
 def get_result(obj):
+    while not queue.empty():
+        print(queue.get())
     print("FINAL RESULTS : ", obj.get_results())
 
 
 def clean_url(result_urls):
+    jobs = []
     print("TOTAL PROJECTS : ", len(result_urls))
     obj = Begin()
     for url in result_urls:
         if 'http' not in url:
             if url[0] == '/':
                 url = root_url + url[1:]
-            get_tech(url, obj)
+            jobs.append(url)
         else:
             continue
-    get_result(obj)
+    run_jobs(jobs)
+    #get_result(obj)
 
 
 print("ALL URLs : ",result)
 clean_url(result)
 driver.close()
+
+
+
+def process_result_batches(jobs):
+    queue = Queue()
+    processes = []
+    for i in jobs:
+        process = Process(target=get_tech, args=[i, webdriver.Chrome, queue])
+        process.start()
+        processes.append(process)
+
+    for process in processes:
+        process.join()
+    print("RETURNING.....")
+
+
+def set_language():
+    global inputted_language
+    inputted_language = input("Enter the name of programming language : ")
+
+def run_jobs(jobs):
+    set_language()
+    limit = 5
+    start = 0
+    end = limit
+    if len(jobs) < limit:
+        process_result_batches(jobs)
+    while end < len(jobs):
+        process_result_batches(jobs[start:end+1])
+        start = end+1
+        end = start+limit
+
+run_jobs()
